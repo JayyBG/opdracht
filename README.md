@@ -1,6 +1,6 @@
 # GridWatch 2030 – demonstratieomgeving
 
-Een Docker-omgeving voor het fictieve programma GridWatch 2030. Je kunt er storingen, foutmeldingen en beveiligingsgebeurtenissen mee nabootsen. De omgeving maakt logs aan die het HBO-team (Cyber Security & Cloud) gebruikt voor monitoring en detectie.
+Een Docker-omgeving voor het fictieve programma GridWatch 2030, over een betrouwbare en veilige energievoorziening. De omgeving bevat windparken, zonneparken, centrales, batterijopslag en hoogspanningsstations (fictieve gegevens). Je kunt er storingen, foutmeldingen en beveiligingsgebeurtenissen mee nabootsen. De omgeving maakt logs aan die het HBO-team (Cyber Security & Cloud) gebruikt voor monitoring en detectie.
 
 Stack: **Python Flask + PostgreSQL + Docker Compose** (optie A uit de opdracht).
 
@@ -65,8 +65,8 @@ Beide containers hebben `restart: unless-stopped`. Als je een container met de h
 | Pagina | Wat je er kunt doen |
 |---|---|
 | `/login` | Inloggen |
-| `/` | Dashboard: netstatus en overzicht van de transformatorstations |
-| `/stations/<id>` | Details, meldingen en de laatste metingen van één station |
+| `/` | Dashboard: netstatus, opgewekt vermogen, duurzaam aandeel en overzicht van alle installaties |
+| `/stations/<id>` | Details, grafieken, meldingen en de laatste metingen van één installatie |
 | `/meldingen` | Onderhoudsmeldingen en storingen bekijken, en via een **formulier** een nieuwe melding invullen |
 | `/meldingen?type=storing` | Storingenoverzicht |
 | `/gebeurtenissen` | De laatste 200 gebeurtenissen uit de `events`-tabel, te filteren op INFO, WARN of ERROR |
@@ -77,8 +77,8 @@ De API heeft geen login nodig: het is een interne testomgeving. Alle antwoorden 
 
 | Endpoint | Beschrijving |
 |---|---|
-| `GET /api/stations` | Alle stations |
-| `GET /api/station/<id>` | Eén station, met de laatste meting en open meldingen |
+| `GET /api/stations` | Alle installaties (energievoorzieningen) |
+| `GET /api/station/<id>` | Eén installatie, met de laatste meting en open meldingen |
 | `GET /api/alerts` | Meldingen. Filters: `?type=storing\|onderhoud`, `?status=open\|gesloten` |
 | `GET /api/sensor-data` | Meetgegevens. Filters: `?station_id=1`, `?limit=50` (max 500) |
 | `GET /api/grid-health` | Samenvatting van het net (de bonusopdracht) |
@@ -94,10 +94,12 @@ curl http://localhost:8080/api/grid-health
 | Tabel | Kolommen |
 |---|---|
 | `users` | id, username, password_hash, role |
-| `stations` | id, naam, locatie, status, vermogen_mw, temperatuur |
+| `stations` | id, naam, soort, locatie, status, capaciteit_mw, aansluiting_kv, vermogen_mw, temperatuur |
 | `alerts` | id, station_id, tijdstip, type, ernst, beschrijving, status, gemeld_door |
 | `sensor_data` | id, station_id, tijdstip, vermogen_mw, temperatuur, spanning_kv |
 | `events` | id, tijdstip, niveau, type, beschrijving |
+
+De tabel `stations` bevat de energievoorzieningen. `soort` is een van: Windpark, Windpark op zee, Zonnepark, Gascentrale, Biomassacentrale, Batterijopslag of Hoogspanningsstation. De naam `stations` volgt de API-endpoints uit de opdracht.
 
 Wachtwoorden worden gehasht opgeslagen. Het schema en de voorbeelddata staan in `database/init.sql`.
 

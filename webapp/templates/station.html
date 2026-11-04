@@ -1,13 +1,16 @@
 {% extends "base.html" %}
-{% from "macros.html" import icon, badge, chart %}
+{% from "macros.html" import icon, badge, chart, soort_icon %}
 {% block title %}{{ station.naam }}{% endblock %}
 {% block content %}
 <a class="back" href="{{ url_for('dashboard') }}">{{ icon('arrow-left') }}Terug naar overzicht</a>
 <header class="page-head">
-  <div>
-    <p class="eyebrow">Transformatorstation</p>
-    <h1>{{ station.naam }}</h1>
-    <p class="muted">{{ station.locatie }}</p>
+  <div class="title-row">
+    {{ soort_icon(station.soort) }}
+    <div>
+      <p class="eyebrow">{{ station.soort }}</p>
+      <h1>{{ station.naam }}</h1>
+      <p class="muted">{{ station.locatie }} · capaciteit {{ '%.0f' % station.capaciteit_mw }} MW · aansluiting {{ station.aansluiting_kv }} kV</p>
+    </div>
   </div>
   {{ badge(station.status, size='lg') }}
 </header>
@@ -16,7 +19,7 @@
 <div class="kpis">
   <div class="panel kpi">
     <span class="kpi-icon tone-info">{{ icon('zap') }}</span>
-    <div><div class="kpi-label">Vermogen</div><div class="kpi-value">{{ '%.0f' % (laatste.vermogen_mw if laatste else station.vermogen_mw) }}<small>MW</small></div></div>
+    <div><div class="kpi-label">Vermogen</div><div class="kpi-value">{{ '%.0f' % (laatste.vermogen_mw if laatste else station.vermogen_mw) }}<small>/ {{ '%.0f' % station.capaciteit_mw }} MW</small></div></div>
   </div>
   {% set temp = laatste.temperatuur if laatste else station.temperatuur %}
   <div class="panel kpi">
@@ -90,7 +93,7 @@
       {% endfor %}
     </ul>
     {% else %}
-    <p class="empty">Geen meldingen voor dit station.</p>
+    <p class="empty">Geen meldingen voor deze installatie.</p>
     {% endif %}
   </section>
 </div>

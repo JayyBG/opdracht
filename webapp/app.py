@@ -37,6 +37,7 @@ DB_SETTINGS = dict(
 
 ALERT_TYPES = ("storing", "onderhoud")
 ALERT_LEVELS = ("laag", "middel", "hoog")
+DUURZAAM = ("Windpark", "Windpark op zee", "Zonnepark", "Biomassacentrale")
 
 
 # --- Database -----------------------------------------------------------------
@@ -294,8 +295,13 @@ def dashboard():
         "WHERE a.status = 'open' "
         "ORDER BY CASE a.ernst WHEN 'hoog' THEN 0 WHEN 'middel' THEN 1 ELSE 2 END, a.tijdstip DESC "
         "LIMIT 6")
+    # Hoogspanningsstations voeren stroom alleen door; die tellen niet mee als opwekking.
+    opwekkers = [s for s in stations if s["soort"] != "Hoogspanningsstation"]
+    opgewekt = sum(s["vermogen_mw"] or 0 for s in opwekkers)
+    duurzaam = sum(s["vermogen_mw"] or 0 for s in opwekkers if s["soort"] in DUURZAAM)
     return render_template("dashboard.html", stations=stations, health=grid_health(),
-                           trends=trends, open_alerts=open_alerts)
+                           trends=trends, open_alerts=open_alerts, opgewekt=opgewekt,
+                           duurzaam_pct=round(duurzaam / opgewekt * 100) if opgewekt else 0)
 
 
 @app.route("/stations/<int:station_id>")
@@ -386,14 +392,17 @@ def test_load():
     count = min(max(request.form.get("count", 1000, type=int) or 1000, 1), 20000)
     started = time.perf_counter()
 
-    station_ids = [row["id"] for row in query("SELECT id FROM stations WHERE status <> 'OFFLINE'")]
-    rows = [
-        (random.choice(station_ids),
-         round(random.uniform(50, 420), 1),
-         round(random.uniform(15, 80), 1),
-         round(random.choice((380, 220, 150, 110)) + random.uniform(-4, 4), 1))
-        for _ in range(count)
-    ]
+    installaties = query("SELECT id, capaciteit_mw, aansluiting_kv FROM stations "
+                         "WHERE status NOT IN ('OFFLINE', 'ONDERHOUD')")
+    rows = []
+    for _ in range(count):
+        inst = random.choice(installaties)
+        rows.append((
+            inst["id"],
+            round(inst["capaciteit_mw"] * random.uniform(0.2, 0.95), 1),
+            round(random.uniform(15, 80), 1),
+            round(inst["aansluiting_kv"] * random.uniform(0.98, 1.02), 1),
+        ))
     db = get_db()
     with db.cursor() as cur:
         psycopg2.extras.execute_values(
@@ -422,8 +431,11 @@ def iso(value):
 def station_json(row):
     return {
         "id": row["id"],
-        "station": row["naam"].removeprefix("Station "),
+        "station": row["naam"],
+        "soort": row["soort"],
         "locatie": row["locatie"],
+        "capaciteit_mw": row["capaciteit_mw"],
+        "aansluiting_kv": row["aansluiting_kv"],
         "vermogen_mw": row["vermogen_mw"],
         "temperatuur": row["temperatuur"],
         "status": row["status"],

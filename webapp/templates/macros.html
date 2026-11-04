@@ -2,6 +2,14 @@
 <svg class="icon" aria-hidden="true"><use href="#i-{{ name }}"/></svg>
 {%- endmacro %}
 
+{# Icoon in een gekleurd vlak, per soort energievoorziening. #}
+{% macro soort_icon(soort) -%}
+{% set name = {
+  'Windpark': 'wind', 'Windpark op zee': 'wind', 'Zonnepark': 'sun', 'Gascentrale': 'flame',
+  'Biomassacentrale': 'leaf', 'Batterijopslag': 'battery', 'Hoogspanningsstation': 'tower'}.get(soort, 'zap') %}
+<span class="soort-icon soort-{{ name }}" title="{{ soort }}">{{ icon(name) }}</span>
+{%- endmacro %}
+
 {% macro badge(value, prefix='s', size='') -%}
 <span class="badge {{ prefix }}-{{ value }} {{ size }}"><span class="dot"></span>{{ value }}</span>
 {%- endmacro %}

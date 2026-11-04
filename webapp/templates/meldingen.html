@@ -18,7 +18,7 @@
 <section class="panel" style="margin-bottom:1.25rem">
   <div class="panel-head"><h2>{{ icon('plus') }}Nieuwe melding</h2></div>
   <form method="post" action="{{ url_for('meldingen') }}" class="panel-body form-inline" style="padding-bottom:.25rem">
-    <label>Station
+    <label>Installatie
       <select name="station_id" required>
         {% for s in stations %}<option value="{{ s.id }}">{{ s.naam }}</option>{% endfor %}
       </select>
@@ -43,12 +43,12 @@
 <section class="panel">
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Tijdstip</th><th>Station</th><th>Type</th><th>Ernst</th><th>Beschrijving</th><th>Status</th></tr></thead>
+        <thead><tr><th>Tijdstip</th><th>Installatie</th><th>Type</th><th>Ernst</th><th>Beschrijving</th><th>Status</th></tr></thead>
         <tbody>
         {% for a in alerts %}
           <tr>
             <td class="mono nowrap">{{ a.tijdstip.strftime('%d-%m %H:%M') }}</td>
-            <td class="nowrap">{% if a.station_id %}<a href="{{ url_for('station_detail', station_id=a.station_id) }}">{{ a.station|replace('Station ', '') }}</a>{% else %}–{% endif %}</td>
+            <td class="nowrap">{% if a.station_id %}<a href="{{ url_for('station_detail', station_id=a.station_id) }}">{{ a.station }}</a>{% else %}–{% endif %}</td>
             <td class="nowrap">{{ icon('alert' if a.type == 'storing' else 'wrench') }} {{ a.type }}</td>
             <td>{{ badge(a.ernst, 'e') }}</td>
             <td>{{ a.beschrijving }}<br><small class="muted">door {{ a.gemeld_door or 'onbekend' }}</small></td>
