@@ -1,0 +1,50 @@
+name: gridwatch2030
+
+services:
+  database:
+    image: postgres:16-alpine
+    container_name: database
+    environment:
+      POSTGRES_DB: gridwatch
+      POSTGRES_USER: gridwatch
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-gridwatch}
+      TZ: Europe/Amsterdam
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gridwatch -d gridwatch"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  webapp:
+    build: ./webapp
+    container_name: webapp
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      DB_HOST: database
+      DB_NAME: gridwatch
+      DB_USER: gridwatch
+      DB_PASSWORD: ${DB_PASSWORD:-gridwatch}
+      SECRET_KEY: ${SECRET_KEY:-verander-mij-in-productie}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-GridWatch2030!}
+      OPERATOR_PASSWORD: ${OPERATOR_PASSWORD:-Operator2030!}
+      LOG_FILE: /app/logs/app.log
+      TZ: Europe/Amsterdam
+    ports:
+      - "8080:5000"
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  db-data:

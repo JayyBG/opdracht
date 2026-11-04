@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ station.naam }}{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('dashboard') }}">← Terug naar overzicht</a></p>
+<h1>{{ station.naam }} <span class="badge s-{{ station.status }}">{{ station.status }}</span></h1>
+<p class="muted">{{ station.locatie }} · {{ '%.0f' % station.vermogen_mw }} MW · {{ '%.0f' % station.temperatuur }} °C</p>
+
+<h2>Meldingen</h2>
+{% if meldingen %}
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Tijdstip</th><th>Type</th><th>Ernst</th><th>Beschrijving</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for a in meldingen %}
+      <tr>
+        <td>{{ a.tijdstip.strftime('%d-%m-%Y %H:%M') }}</td>
+        <td>{{ a.type }}</td>
+        <td><span class="badge e-{{ a.ernst }}">{{ a.ernst }}</span></td>
+        <td>{{ a.beschrijving }}</td>
+        <td>{{ a.status }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="muted">Geen meldingen voor dit station.</p>
+{% endif %}
+
+<h2>Laatste 20 metingen</h2>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Tijdstip</th><th class="num">Vermogen (MW)</th><th class="num">Temperatuur (°C)</th><th class="num">Spanning (kV)</th></tr></thead>
+    <tbody>
+    {% for m in metingen %}
+      <tr>
+        <td>{{ m.tijdstip.strftime('%d-%m-%Y %H:%M:%S') }}</td>
+        <td class="num">{{ '%.1f' % m.vermogen_mw }}</td>
+        <td class="num">{{ '%.1f' % m.temperatuur }}</td>
+        <td class="num">{{ '%.1f' % m.spanning_kv }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

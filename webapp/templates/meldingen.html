@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Storingen' if filter_type == 'storing' else 'Meldingen' }}{% endblock %}
+{% block content %}
+<h1>{{ 'Storingenoverzicht' if filter_type == 'storing' else 'Meldingen' }}</h1>
+
+<p class="filters">
+  Filter:
+  <a href="{{ url_for('meldingen') }}" {% if not filter_type %}class="active"{% endif %}>Alle</a>
+  <a href="{{ url_for('meldingen', type='storing') }}" {% if filter_type == 'storing' %}class="active"{% endif %}>Storingen</a>
+  <a href="{{ url_for('meldingen', type='onderhoud') }}" {% if filter_type == 'onderhoud' %}class="active"{% endif %}>Onderhoud</a>
+</p>
+
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Tijdstip</th><th>Station</th><th>Type</th><th>Ernst</th><th>Beschrijving</th><th>Status</th><th>Gemeld door</th></tr></thead>
+    <tbody>
+    {% for a in alerts %}
+      <tr>
+        <td>{{ a.tijdstip.strftime('%d-%m-%Y %H:%M') }}</td>
+        <td>{{ a.station or '-' }}</td>
+        <td>{{ a.type }}</td>
+        <td><span class="badge e-{{ a.ernst }}">{{ a.ernst }}</span></td>
+        <td>{{ a.beschrijving }}</td>
+        <td>{{ a.status }}</td>
+        <td>{{ a.gemeld_door or '-' }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="muted">Geen meldingen.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<section class="card">
+  <h2>Nieuwe melding</h2>
+  <form method="post" action="{{ url_for('meldingen') }}" class="grid-form">
+    <label>Station
+      <select name="station_id" required>
+        {% for s in stations %}<option value="{{ s.id }}">{{ s.naam }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Type
+      <select name="type">
+        {% for t in types %}<option value="{{ t }}" {% if t == filter_type %}selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Ernst
+      <select name="ernst">
+        {% for l in levels %}<option value="{{ l }}" {% if l == 'middel' %}selected{% endif %}>{{ l }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="wide">Beschrijving
+      <textarea name="beschrijving" rows="3" minlength="3" maxlength="500" required></textarea>
+    </label>
+    <button type="submit">Melding opslaan</button>
+  </form>
+</section>
+{% endblock %}

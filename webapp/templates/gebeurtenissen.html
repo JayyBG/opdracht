@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Gebeurtenissen{% endblock %}
+{% block content %}
+<h1>Gebeurtenissen</h1>
+<p class="muted">De laatste 200 gebeurtenissen uit de database. Het volledige log (inclusief elk API-verzoek) staat in <code>logs/app.log</code>.</p>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Tijdstip</th><th>Niveau</th><th>Type</th><th>Beschrijving</th></tr></thead>
+    <tbody>
+    {% for e in events %}
+      <tr>
+        <td>{{ e.tijdstip.strftime('%d-%m-%Y %H:%M:%S') }}</td>
+        <td><span class="badge l-{{ e.niveau }}">{{ e.niveau }}</span></td>
+        <td><code>{{ e.type }}</code></td>
+        <td>{{ e.beschrijving }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="muted">Nog geen gebeurtenissen.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

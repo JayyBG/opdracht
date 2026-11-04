@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Netoverzicht</h1>
+
+<div class="tiles">
+  <div class="tile"><span class="label">Stations online</span><span class="value">{{ health.stations_online }}</span></div>
+  <div class="tile"><span class="label">Stations offline</span><span class="value">{{ health.stations_offline }}</span></div>
+  <div class="tile"><span class="label">Open storingen</span><span class="value">{{ health.storingen }}</span></div>
+  <div class="tile"><span class="label">Netstatus</span><span class="value"><span class="badge s-{{ health.status }}">{{ health.status }}</span></span></div>
+</div>
+
+<h2>Transformatorstations</h2>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Station</th><th>Locatie</th><th class="num">Vermogen (MW)</th><th class="num">Temperatuur (°C)</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for s in stations %}
+      <tr>
+        <td><a href="{{ url_for('station_detail', station_id=s.id) }}">{{ s.naam }}</a></td>
+        <td>{{ s.locatie }}</td>
+        <td class="num">{{ '%.0f' % s.vermogen_mw }}</td>
+        <td class="num">{{ '%.0f' % s.temperatuur }}</td>
+        <td><span class="badge s-{{ s.status }}">{{ s.status }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
