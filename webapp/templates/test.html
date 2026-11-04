@@ -1,39 +1,66 @@
 {% extends "base.html" %}
+{% from "macros.html" import icon %}
 {% block title %}Testscenario's{% endblock %}
 {% block content %}
-<h1>Testscenario's</h1>
-<p class="muted">Hiermee boots je gebeurtenissen na voor het monitoringteam. Alles gebeurt alleen binnen deze lokale testomgeving.</p>
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Simulatie</p>
+    <h1>Testscenario's</h1>
+    <p class="muted">Boots gebeurtenissen na voor het monitoringteam. Alles blijft binnen deze lokale testomgeving.</p>
+  </div>
+</header>
 
-<div class="cards">
-  <section class="card">
+<div class="scenarios">
+  <section class="panel scenario">
+    <div class="scenario-top"><span class="kpi-icon tone-ok">{{ icon('check') }}</span><span class="scenario-num">Scenario 1</span></div>
+    <h2>Succesvolle login</h2>
+    <p>Log uit en weer in. In het log verschijnt <code>INFO User … logged in</code>.</p>
+    <div class="actions"><div class="terminal">./scripts/scenario1-login-succes.sh</div></div>
+  </section>
+
+  <section class="panel scenario">
+    <div class="scenario-top"><span class="kpi-icon tone-warn">{{ icon('user-x') }}</span><span class="scenario-num">Scenario 2</span></div>
+    <h2>Foute wachtwoorden</h2>
+    <p>Probeer een paar keer in te loggen met een verkeerd wachtwoord. Elke poging geeft <code>WARN Invalid password</code>.</p>
+    <div class="actions"><div class="terminal">./scripts/scenario2-foute-logins.sh 10</div></div>
+  </section>
+
+  <section class="panel scenario">
+    <div class="scenario-top"><span class="kpi-icon tone-info">{{ icon('activity') }}</span><span class="scenario-num">Scenario 3</span></div>
+    <h2>Veel API-verkeer</h2>
+    <p>Stuurt een reeks verzoeken naar <code>GET /api/stations</code>.</p>
+    <div class="actions">
+      <label>Aantal verzoeken <input id="api-count" type="number" value="50" min="1" max="1000"></label>
+      <div class="progress" aria-hidden="true"><span id="api-bar"></span></div>
+      <p id="api-result" aria-live="polite" style="margin:.6rem 0">&nbsp;</p>
+      <button type="button" id="api-start" class="block">{{ icon('send') }}Start API-verkeer</button>
+    </div>
+  </section>
+
+  <section class="panel scenario">
+    <div class="scenario-top"><span class="kpi-icon tone-bad">{{ icon('bug') }}</span><span class="scenario-num">Scenario 4</span></div>
     <h2>Applicatiefout</h2>
     <p>Laat de applicatie een exception gooien. In het log verschijnt <code>ERROR Test exception generated</code>.</p>
     <form method="post" action="{{ url_for('test_error') }}">
-      <button type="submit" class="danger">Genereer foutmelding</button>
+      <button type="submit" class="danger block">{{ icon('bug') }}Genereer foutmelding</button>
     </form>
   </section>
 
-  <section class="card">
-    <h2>Veel API-verkeer</h2>
-    <p>Stuurt een reeks verzoeken naar <code>GET /api/stations</code>.</p>
-    <label>Aantal verzoeken <input id="api-count" type="number" value="50" min="1" max="1000"></label>
-    <button type="button" id="api-start">Start API-verkeer</button>
-    <p id="api-result" class="muted" aria-live="polite"></p>
+  <section class="panel scenario">
+    <div class="scenario-top"><span class="kpi-icon tone-bad">{{ icon('power') }}</span><span class="scenario-num">Scenario 5</span></div>
+    <h2>Containeruitval</h2>
+    <p>Stop een container met de hand. Bij de webapp zie je <code>Application stopped</code>, bij de database <code>Database connection failed</code>.</p>
+    <div class="actions"><div class="terminal">docker stop webapp &amp;&amp; docker start webapp</div></div>
   </section>
 
-  <section class="card">
+  <section class="panel scenario">
+    <div class="scenario-top"><span class="kpi-icon tone-warn">{{ icon('gauge') }}</span><span class="scenario-num">Scenario 6</span></div>
     <h2>Hoge belasting</h2>
-    <p>Maakt in één keer veel sensorrecords aan. Dat zorgt voor database-activiteit, CPU-gebruik en extra logging.</p>
+    <p>Maakt in één keer veel sensorrecords aan. Dat geeft database-activiteit, CPU-gebruik en extra logging.</p>
     <form method="post" action="{{ url_for('test_load') }}">
       <label>Aantal records <input name="count" type="number" value="1000" min="1" max="20000"></label>
-      <button type="submit">Genereer sensorrecords</button>
+      <button type="submit" class="block">{{ icon('database') }}Genereer sensorrecords</button>
     </form>
-  </section>
-
-  <section class="card">
-    <h2>Mislukte logins en containeruitval</h2>
-    <p>Log uit en probeer een paar keer een verkeerd wachtwoord, of gebruik <code>scripts/scenario2-foute-logins.sh</code>.</p>
-    <p>Containeruitval: <code>docker stop webapp</code> (of <code>docker stop database</code>), daarna weer <code>docker start …</code>.</p>
   </section>
 </div>
 
@@ -41,6 +68,7 @@
   document.getElementById("api-start").addEventListener("click", async (event) => {
     const button = event.currentTarget;
     const result = document.getElementById("api-result");
+    const bar = document.getElementById("api-bar");
     const total = Math.min(Math.max(parseInt(document.getElementById("api-count").value, 10) || 50, 1), 1000);
     const counts = {};
     button.disabled = true;
@@ -53,6 +81,7 @@
         status = "netwerkfout";
       }
       counts[status] = (counts[status] || 0) + 1;
+      bar.style.width = `${(i / total) * 100}%`;
       result.textContent = `${i} / ${total} verzoeken verstuurd…`;
     }
     const seconds = ((performance.now() - started) / 1000).toFixed(1);

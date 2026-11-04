@@ -1,46 +1,97 @@
 {% extends "base.html" %}
+{% from "macros.html" import icon, badge, chart %}
 {% block title %}{{ station.naam }}{% endblock %}
 {% block content %}
-<p><a href="{{ url_for('dashboard') }}">← Terug naar overzicht</a></p>
-<h1>{{ station.naam }} <span class="badge s-{{ station.status }}">{{ station.status }}</span></h1>
-<p class="muted">{{ station.locatie }} · {{ '%.0f' % station.vermogen_mw }} MW · {{ '%.0f' % station.temperatuur }} °C</p>
+<a class="back" href="{{ url_for('dashboard') }}">{{ icon('arrow-left') }}Terug naar overzicht</a>
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Transformatorstation</p>
+    <h1>{{ station.naam }}</h1>
+    <p class="muted">{{ station.locatie }}</p>
+  </div>
+  {{ badge(station.status, size='lg') }}
+</header>
 
-<h2>Meldingen</h2>
-{% if meldingen %}
-<div class="table-wrap">
-  <table>
-    <thead><tr><th>Tijdstip</th><th>Type</th><th>Ernst</th><th>Beschrijving</th><th>Status</th></tr></thead>
-    <tbody>
-    {% for a in meldingen %}
-      <tr>
-        <td>{{ a.tijdstip.strftime('%d-%m-%Y %H:%M') }}</td>
-        <td>{{ a.type }}</td>
-        <td><span class="badge e-{{ a.ernst }}">{{ a.ernst }}</span></td>
-        <td>{{ a.beschrijving }}</td>
-        <td>{{ a.status }}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+{% set laatste = metingen[0] if metingen else None %}
+<div class="kpis">
+  <div class="panel kpi">
+    <span class="kpi-icon tone-info">{{ icon('zap') }}</span>
+    <div><div class="kpi-label">Vermogen</div><div class="kpi-value">{{ '%.0f' % (laatste.vermogen_mw if laatste else station.vermogen_mw) }}<small>MW</small></div></div>
+  </div>
+  {% set temp = laatste.temperatuur if laatste else station.temperatuur %}
+  <div class="panel kpi">
+    <span class="kpi-icon {{ 'tone-bad' if temp >= 65 else 'tone-warn' if temp >= 55 else 'tone-ok' }}">{{ icon('thermo') }}</span>
+    <div><div class="kpi-label">Temperatuur</div><div class="kpi-value">{{ '%.1f' % temp }}<small>°C</small></div></div>
+  </div>
+  <div class="panel kpi">
+    <span class="kpi-icon tone-info">{{ icon('activity') }}</span>
+    <div><div class="kpi-label">Spanning</div><div class="kpi-value">{{ '%.0f' % laatste.spanning_kv if laatste else '–' }}<small>kV</small></div></div>
+  </div>
+  {% set open_count = meldingen|selectattr('status', 'equalto', 'open')|list|length %}
+  <div class="panel kpi">
+    <span class="kpi-icon {{ 'tone-warn' if open_count else 'tone-ok' }}">{{ icon('bell') }}</span>
+    <div><div class="kpi-label">Open meldingen</div><div class="kpi-value">{{ open_count }}</div></div>
+  </div>
 </div>
-{% else %}
-<p class="muted">Geen meldingen voor dit station.</p>
-{% endif %}
 
-<h2>Laatste 20 metingen</h2>
-<div class="table-wrap">
-  <table>
-    <thead><tr><th>Tijdstip</th><th class="num">Vermogen (MW)</th><th class="num">Temperatuur (°C)</th><th class="num">Spanning (kV)</th></tr></thead>
-    <tbody>
-    {% for m in metingen %}
-      <tr>
-        <td>{{ m.tijdstip.strftime('%d-%m-%Y %H:%M:%S') }}</td>
-        <td class="num">{{ '%.1f' % m.vermogen_mw }}</td>
-        <td class="num">{{ '%.1f' % m.temperatuur }}</td>
-        <td class="num">{{ '%.1f' % m.spanning_kv }}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+{% set reeks = metingen|reverse|list %}
+<div class="split-even" style="margin-bottom:1.25rem">
+  <section class="panel">
+    <div class="panel-head"><h2>{{ icon('zap') }}Vermogen (MW)</h2><span class="muted">laatste {{ reeks|length }} metingen</span></div>
+    <div class="panel-body">
+      {{ chart(reeks|map(attribute='vermogen_mw')|list, 'chart', 600, 160) }}
+      {% if reeks %}<div class="chart-meta"><span>{{ reeks[0].tijdstip.strftime('%d-%m %H:%M') }}</span><span>{{ reeks[-1].tijdstip.strftime('%d-%m %H:%M') }}</span></div>{% endif %}
+    </div>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><h2>{{ icon('thermo') }}Temperatuur (°C)</h2><span class="muted">laatste {{ reeks|length }} metingen</span></div>
+    <div class="panel-body">
+      {{ chart(reeks|map(attribute='temperatuur')|list, 'chart temp', 600, 160) }}
+      {% if reeks %}<div class="chart-meta"><span>{{ reeks[0].tijdstip.strftime('%d-%m %H:%M') }}</span><span>{{ reeks[-1].tijdstip.strftime('%d-%m %H:%M') }}</span></div>{% endif %}
+    </div>
+  </section>
+</div>
+
+<div class="split">
+  <section class="panel">
+    <div class="panel-head"><h2>{{ icon('activity') }}Laatste metingen</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Tijdstip</th><th class="num">Vermogen</th><th class="num">Temperatuur</th><th class="num">Spanning</th></tr></thead>
+        <tbody>
+        {% for m in metingen[:20] %}
+          <tr>
+            <td class="mono nowrap">{{ m.tijdstip.strftime('%d-%m-%Y %H:%M:%S') }}</td>
+            <td class="num">{{ '%.1f' % m.vermogen_mw }} <span class="muted">MW</span></td>
+            <td class="num {{ 'very-hot' if m.temperatuur >= 65 else 'hot' if m.temperatuur >= 55 }}">{{ '%.1f' % m.temperatuur }} °C</td>
+            <td class="num">{{ '%.1f' % m.spanning_kv }} <span class="muted">kV</span></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4" class="empty">Geen metingen.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>{{ icon('bell') }}Meldingen</h2></div>
+    {% if meldingen %}
+    <ul class="feed">
+      {% for a in meldingen %}
+      <li>
+        <span class="feed-icon {{ 'tone-bad' if a.ernst == 'hoog' else 'tone-warn' if a.ernst == 'middel' else 'tone-info' }}">{{ icon('alert' if a.type == 'storing' else 'wrench') }}</span>
+        <div class="feed-body">
+          <strong>{{ a.type|capitalize }} · {{ a.status }}</strong>
+          <p>{{ a.beschrijving }}</p>
+          <p class="mono">{{ a.tijdstip.strftime('%d-%m %H:%M') }}</p>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">Geen meldingen voor dit station.</p>
+    {% endif %}
+  </section>
 </div>
 {% endblock %}

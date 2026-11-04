@@ -1,17 +1,53 @@
 {% extends "base.html" %}
+{% from "macros.html" import icon %}
 {% block title %}Inloggen{% endblock %}
 {% block content %}
-<section class="card login">
-  <h1>Inloggen</h1>
-  <form method="post" action="{{ url_for('login') }}">
-    <label>Gebruikersnaam
-      <input name="username" value="{{ username or '' }}" autocomplete="username" required autofocus>
-    </label>
-    <label>Wachtwoord
-      <input name="password" type="password" autocomplete="current-password" required>
-    </label>
-    <button type="submit">Inloggen</button>
-  </form>
-  <p class="muted">Testaccounts staan in de README.</p>
-</section>
+<div class="auth-wrap">
+  <section class="auth-hero">
+    <a class="brand" href="{{ url_for('login') }}">
+      <span class="brand-mark">{{ icon('zap') }}</span>
+      <span>GridWatch <b>2030</b></span>
+    </a>
+    <div>
+      <h1>Een betrouwbaar en veilig energienet begint bij inzicht.</h1>
+      <p>Volg transformatorstations, storingen en meetgegevens op één plek, en boots incidenten na in een veilige testomgeving.</p>
+    </div>
+    <div class="auth-stats">
+      <div><strong>24/7</strong><span>netbewaking</span></div>
+      <div><strong>REST</strong><span>API voor monitoring</span></div>
+      <div><strong>6</strong><span>testscenario's</span></div>
+    </div>
+    <svg class="grid-art" viewBox="0 0 520 360" aria-hidden="true">
+      <line x1="40" y1="300" x2="160" y2="200"/><line x1="160" y1="200" x2="300" y2="240"/>
+      <line x1="300" y1="240" x2="420" y2="120"/><line x1="160" y1="200" x2="230" y2="80"/>
+      <line x1="230" y1="80" x2="420" y2="120"/><line x1="300" y1="240" x2="480" y2="300"/>
+      <line x1="420" y1="120" x2="500" y2="40"/><line x1="40" y1="300" x2="300" y2="240"/>
+      <circle cx="40" cy="300" r="6"/><circle cx="160" cy="200" r="7"/><circle cx="300" cy="240" r="6"/>
+      <circle cx="420" cy="120" r="8"/><circle cx="230" cy="80" r="5"/><circle cx="480" cy="300" r="5"/>
+      <circle cx="500" cy="40" r="5"/>
+    </svg>
+  </section>
+
+  <section class="auth-form">
+    <div class="auth-card">
+      <h2>Welkom terug</h2>
+      <p class="muted">Log in om het netoverzicht te bekijken.</p>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ icon('alert') }}{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+      <form method="post" action="{{ url_for('login') }}">
+        <label>Gebruikersnaam
+          <input name="username" value="{{ username or '' }}" autocomplete="username" required autofocus>
+        </label>
+        <label>Wachtwoord
+          <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit" class="block">Inloggen</button>
+      </form>
+      <p class="muted" style="font-size:.85rem;margin-top:1.25rem">Testaccounts staan in de README.</p>
+    </div>
+  </section>
+</div>
 {% endblock %}

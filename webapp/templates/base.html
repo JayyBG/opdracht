@@ -1,3 +1,4 @@
+{% from "macros.html" import icon %}
 <!doctype html>
 <html lang="nl">
 <head>
@@ -6,33 +7,43 @@
   <title>{% block title %}GridWatch 2030{% endblock %} · GridWatch 2030</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="{{ url_for('dashboard') }}">GridWatch <span>2030</span></a>
-    {% if session.user %}
-    <nav>
-      <a href="{{ url_for('dashboard') }}">Dashboard</a>
-      <a href="{{ url_for('meldingen') }}">Meldingen</a>
-      <a href="{{ url_for('meldingen', type='storing') }}">Storingen</a>
-      <a href="{{ url_for('gebeurtenissen') }}">Gebeurtenissen</a>
-      <a href="{{ url_for('test_page') }}">Testscenario's</a>
+<body class="{{ '' if session.user else 'auth' }}">
+  {% include "_icons.html" %}
+
+  {% if session.user %}
+  {% set ep = request.endpoint %}
+  {% set is_storing = ep == 'meldingen' and request.args.get('type') == 'storing' %}
+  <aside class="sidebar">
+    <a class="brand" href="{{ url_for('dashboard') }}">
+      <span class="brand-mark">{{ icon('zap') }}</span>
+      <span>GridWatch <b>2030</b></span>
+    </a>
+    <nav class="nav">
+      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if ep in ('dashboard', 'station_detail') }}">{{ icon('grid') }}<span class="nav-label">Dashboard</span></a>
+      <a href="{{ url_for('meldingen') }}" class="{{ 'active' if ep == 'meldingen' and not is_storing }}">{{ icon('bell') }}<span class="nav-label">Meldingen</span></a>
+      <a href="{{ url_for('meldingen', type='storing') }}" class="{{ 'active' if is_storing }}">{{ icon('alert') }}<span class="nav-label">Storingen</span>
+        {% if open_storingen %}<span class="nav-count">{{ open_storingen }}</span>{% endif %}</a>
+      <a href="{{ url_for('gebeurtenissen') }}" class="{{ 'active' if ep == 'gebeurtenissen' }}">{{ icon('list') }}<span class="nav-label">Gebeurtenissen</span></a>
+      <a href="{{ url_for('test_page') }}" class="{{ 'active' if ep == 'test_page' }}">{{ icon('flask') }}<span class="nav-label">Testscenario's</span></a>
     </nav>
-    <div class="user">
-      {{ session.user }} <small>({{ session.role }})</small>
-      <a href="{{ url_for('logout') }}">Uitloggen</a>
+    <div class="sidebar-foot">
+      <span class="avatar">{{ session.user[:1] }}</span>
+      <div class="me"><strong>{{ session.user }}</strong><small>{{ session.role }}</small></div>
+      <a class="logout" href="{{ url_for('logout') }}" title="Uitloggen" aria-label="Uitloggen">{{ icon('logout') }}</a>
     </div>
+  </aside>
+  {% endif %}
+
+  {% if session.user %}<main class="content">{% else %}<main>{% endif %}
+    {% if session.user %}
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ icon('check' if category == 'ok' else 'alert') }}{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
     {% endif %}
-  </header>
-
-  <main>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, message in messages %}
-        <div class="flash flash-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endwith %}
     {% block content %}{% endblock %}
+    {% if session.user %}<p class="footer">GridWatch 2030 · demonstratieomgeving, alleen voor testdoeleinden</p>{% endif %}
   </main>
-
-  <footer>GridWatch 2030 · demonstratieomgeving, alleen voor testdoeleinden</footer>
 </body>
 </html>

@@ -69,7 +69,7 @@ Beide containers hebben `restart: unless-stopped`. Als je een container met de h
 | `/stations/<id>` | Details, meldingen en de laatste metingen van één station |
 | `/meldingen` | Onderhoudsmeldingen en storingen bekijken, en via een **formulier** een nieuwe melding invullen |
 | `/meldingen?type=storing` | Storingenoverzicht |
-| `/gebeurtenissen` | De laatste 200 gebeurtenissen uit de `events`-tabel |
+| `/gebeurtenissen` | De laatste 200 gebeurtenissen uit de `events`-tabel, te filteren op INFO, WARN of ERROR |
 | `/test` | Knoppen voor de testscenario's |
 
 ### REST API

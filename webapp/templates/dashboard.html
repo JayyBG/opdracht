@@ -1,30 +1,77 @@
 {% extends "base.html" %}
+{% from "macros.html" import icon, badge, chart %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
-<h1>Netoverzicht</h1>
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Netoverzicht</p>
+    <h1>Dashboard</h1>
+    <p class="muted">Actuele status van {{ stations|length }} transformatorstations</p>
+  </div>
+  {{ badge(health.status, size='lg') }}
+</header>
 
-<div class="tiles">
-  <div class="tile"><span class="label">Stations online</span><span class="value">{{ health.stations_online }}</span></div>
-  <div class="tile"><span class="label">Stations offline</span><span class="value">{{ health.stations_offline }}</span></div>
-  <div class="tile"><span class="label">Open storingen</span><span class="value">{{ health.storingen }}</span></div>
-  <div class="tile"><span class="label">Netstatus</span><span class="value"><span class="badge s-{{ health.status }}">{{ health.status }}</span></span></div>
+<div class="kpis">
+  <div class="panel kpi">
+    <span class="kpi-icon tone-ok">{{ icon('server') }}</span>
+    <div><div class="kpi-label">Stations online</div><div class="kpi-value">{{ health.stations_online }}</div></div>
+  </div>
+  <div class="panel kpi">
+    <span class="kpi-icon {{ 'tone-bad' if health.stations_offline else 'tone-ok' }}">{{ icon('power') }}</span>
+    <div><div class="kpi-label">Stations offline</div><div class="kpi-value">{{ health.stations_offline }}</div></div>
+  </div>
+  <div class="panel kpi">
+    <span class="kpi-icon {{ 'tone-warn' if health.storingen else 'tone-ok' }}">{{ icon('alert') }}</span>
+    <div><div class="kpi-label">Open storingen</div><div class="kpi-value">{{ health.storingen }}</div></div>
+  </div>
+  <div class="panel kpi">
+    <span class="kpi-icon tone-info">{{ icon('zap') }}</span>
+    <div><div class="kpi-label">Totaal vermogen</div><div class="kpi-value">{{ '{:,.0f}'.format(stations|sum(attribute='vermogen_mw')).replace(',', '.') }}<small>MW</small></div></div>
+  </div>
 </div>
 
-<h2>Transformatorstations</h2>
-<div class="table-wrap">
-  <table>
-    <thead><tr><th>Station</th><th>Locatie</th><th class="num">Vermogen (MW)</th><th class="num">Temperatuur (°C)</th><th>Status</th></tr></thead>
-    <tbody>
-    {% for s in stations %}
-      <tr>
-        <td><a href="{{ url_for('station_detail', station_id=s.id) }}">{{ s.naam }}</a></td>
-        <td>{{ s.locatie }}</td>
-        <td class="num">{{ '%.0f' % s.vermogen_mw }}</td>
-        <td class="num">{{ '%.0f' % s.temperatuur }}</td>
-        <td><span class="badge s-{{ s.status }}">{{ s.status }}</span></td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+<div class="split">
+  <section class="panel">
+    <div class="panel-head"><h2>{{ icon('server') }}Transformatorstations</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Station</th><th>Trend vermogen (24 u)</th><th class="num">Vermogen</th><th class="num">Temp.</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for s in stations %}
+          <tr>
+            <td><div class="station-cell"><a href="{{ url_for('station_detail', station_id=s.id) }}">{{ s.naam|replace('Station ', '') }}</a><small>{{ s.locatie }}</small></div></td>
+            <td>{{ chart(trends.get(s.id, [])) }}</td>
+            <td class="num">{{ '%.0f' % s.vermogen_mw }} <span class="muted">MW</span></td>
+            <td class="num {{ 'very-hot' if s.temperatuur >= 65 else 'hot' if s.temperatuur >= 55 }}">{{ '%.0f' % s.temperatuur }} °C</td>
+            <td>{{ badge(s.status) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>{{ icon('bell') }}Open meldingen</h2>
+      <a href="{{ url_for('meldingen') }}">Alles bekijken</a>
+    </div>
+    {% if open_alerts %}
+    <ul class="feed">
+      {% for a in open_alerts %}
+      <li>
+        <span class="feed-icon {{ 'tone-bad' if a.ernst == 'hoog' else 'tone-warn' if a.ernst == 'middel' else 'tone-info' }}">{{ icon('alert' if a.type == 'storing' else 'wrench') }}</span>
+        <div class="feed-body">
+          <strong>{{ a.station|replace('Station ', '') if a.station else 'Onbekend station' }} · {{ a.type }}</strong>
+          <p>{{ a.beschrijving }}</p>
+          <p class="mono">{{ a.tijdstip.strftime('%d-%m %H:%M') }}</p>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">Geen open meldingen.</p>
+    {% endif %}
+  </section>
 </div>
 {% endblock %}

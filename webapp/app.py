@@ -250,11 +250,52 @@ def grid_health():
     }
 
 
+@app.template_filter("sparkline")
+def sparkline(values, width=120, height=32, pad=2):
+    """Zet een reeks getallen om naar punten voor een SVG-polyline."""
+    values = [v for v in values or [] if v is not None]
+    if len(values) < 2:
+        return ""
+    low, high = min(values), max(values)
+    span = (high - low) or 1
+    step = (width - 2 * pad) / (len(values) - 1)
+    return " ".join(
+        f"{pad + i * step:.1f},{height - pad - (v - low) / span * (height - 2 * pad):.1f}"
+        for i, v in enumerate(values))
+
+
+@app.context_processor
+def navigation_counts():
+    """Aantal open storingen voor het rode bolletje in de navigatie."""
+    if "user" not in session:
+        return {}
+    try:
+        row = query("SELECT COUNT(*) AS n FROM alerts WHERE type = 'storing' AND status = 'open'", one=True)
+        return {"open_storingen": row["n"]}
+    except Exception:
+        return {"open_storingen": None}
+
+
 @app.route("/")
 @login_required
 def dashboard():
     stations = query("SELECT * FROM stations ORDER BY naam")
-    return render_template("dashboard.html", stations=stations, health=grid_health())
+    trends = {
+        row["station_id"]: row["reeks"]
+        for row in query(
+            "SELECT station_id, array_agg(vermogen_mw ORDER BY tijdstip) AS reeks FROM ("
+            "  SELECT station_id, tijdstip, vermogen_mw,"
+            "         row_number() OVER (PARTITION BY station_id ORDER BY tijdstip DESC) AS rn"
+            "  FROM sensor_data) t "
+            "WHERE rn <= 24 GROUP BY station_id")
+    }
+    open_alerts = query(
+        "SELECT a.*, s.naam AS station FROM alerts a LEFT JOIN stations s ON s.id = a.station_id "
+        "WHERE a.status = 'open' "
+        "ORDER BY CASE a.ernst WHEN 'hoog' THEN 0 WHEN 'middel' THEN 1 ELSE 2 END, a.tijdstip DESC "
+        "LIMIT 6")
+    return render_template("dashboard.html", stations=stations, health=grid_health(),
+                           trends=trends, open_alerts=open_alerts)
 
 
 @app.route("/stations/<int:station_id>")
@@ -264,7 +305,7 @@ def station_detail(station_id):
     if station is None:
         abort(404)
     metingen = query(
-        "SELECT * FROM sensor_data WHERE station_id = %s ORDER BY tijdstip DESC LIMIT 20", (station_id,))
+        "SELECT * FROM sensor_data WHERE station_id = %s ORDER BY tijdstip DESC LIMIT 48", (station_id,))
     meldingen = query(
         "SELECT * FROM alerts WHERE station_id = %s ORDER BY tijdstip DESC", (station_id,))
     return render_template("station.html", station=station, metingen=metingen, meldingen=meldingen)
@@ -315,8 +356,14 @@ def meldingen():
 @app.route("/gebeurtenissen")
 @login_required
 def gebeurtenissen():
-    events = query("SELECT * FROM events ORDER BY tijdstip DESC LIMIT 200")
-    return render_template("gebeurtenissen.html", events=events)
+    niveaus = ("INFO", "WARN", "ERROR")
+    niveau = request.args.get("niveau")
+    if niveau in niveaus:
+        events = query("SELECT * FROM events WHERE niveau = %s ORDER BY tijdstip DESC LIMIT 200", (niveau,))
+    else:
+        niveau = None
+        events = query("SELECT * FROM events ORDER BY tijdstip DESC LIMIT 200")
+    return render_template("gebeurtenissen.html", events=events, niveau=niveau, niveaus=niveaus)
 
 
 # --- Testscenario's -----------------------------------------------------------

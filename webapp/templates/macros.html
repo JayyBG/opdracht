@@ -1,0 +1,18 @@
+{% macro icon(name) -%}
+<svg class="icon" aria-hidden="true"><use href="#i-{{ name }}"/></svg>
+{%- endmacro %}
+
+{% macro badge(value, prefix='s', size='') -%}
+<span class="badge {{ prefix }}-{{ value }} {{ size }}"><span class="dot"></span>{{ value }}</span>
+{%- endmacro %}
+
+{# Lijngrafiek met vlak eronder. points komt uit het sparkline-filter. #}
+{% macro chart(values, cls='spark', w=120, h=32) -%}
+{% set pts = values | sparkline(w, h) %}
+<svg class="{{ cls }}" viewBox="0 0 {{ w }} {{ h }}" preserveAspectRatio="none" aria-hidden="true">
+  {% if pts %}
+  <polygon points="2,{{ h }} {{ pts }} {{ w - 2 }},{{ h }}"/>
+  <polyline points="{{ pts }}"/>
+  {% endif %}
+</svg>
+{%- endmacro %}
