@@ -138,11 +138,11 @@ Je kunt elk scenario uitvoeren via de website (pagina **Testscenario's**) of met
 
 | # | Scenario | Uitvoeren | Verwacht resultaat in `logs/app.log` |
 |---|---|---|---|
-| 1 | **Succesvolle login** | Inloggen op de website, of `./scripts/scenario1-login-succes.sh` | `INFO User admin logged in` |
-| 2 | **Meerdere foute wachtwoorden** (brute force) | Een paar keer fout inloggen, of `./scripts/scenario2-foute-logins.sh [aantal]` (probeert `welkom123`, `test123`, `admin123`, …) | Per poging een regel `WARN Invalid password for user admin`. Er is bewust **geen** account-lockout, zodat het HBO-team detectie kan bouwen. |
+| 1 | **Inloggen** (onbekende gebruiker → fout wachtwoord → goed) | Knop op de testpagina, of `./scripts/scenario1-login-succes.sh` | `WARN Unknown user adminx`, `WARN Invalid password for user admin`, `INFO User admin logged in` |
+| 2 | **Meerdere foute wachtwoorden** (brute force) | Knop op de testpagina (15 pogingen), of `./scripts/scenario2-foute-logins.sh [aantal]` (standaard 15; probeert `welkom123`, `test123`, `admin123`, …) | Per poging een regel `WARN Invalid password for user admin`. Er is bewust **geen** account-lockout, zodat het HBO-team detectie kan bouwen. |
 | 3 | **Veel API-aanvragen in korte tijd** | Knop *Start API-verkeer*, of `./scripts/scenario3-api-verkeer.sh [aantal] [endpoint]` (standaard 50× `/api/stations`) | 50 regels `INFO GET /api/stations status=200` binnen enkele seconden |
 | 4 | **Applicatiefout** | Knop *Genereer foutmelding*, of `./scripts/scenario4-applicatiefout.sh` | `ERROR Test exception generated type=RuntimeError …`. De gebruiker ziet een foutpagina (HTTP 500). |
-| 5 | **Container handmatig gestopt** | `docker stop webapp` (en later `docker start webapp`), of `./scripts/scenario5-containeruitval.sh [container] [seconden]` | Webapp: `INFO Application stopped`, na de herstart `INFO Application started`. De healthcheck faalt tijdens de uitval. |
+| 5 | **Container handmatig gestopt** | Knoppen op de testpagina (database 30 s stoppen, database starten, webapp herstarten), `docker stop webapp` (en later `docker start webapp`), of `./scripts/scenario5-containeruitval.sh [container] [seconden]` | Webapp: `INFO Application stopped`, na de herstart `INFO Application started`. De healthcheck faalt tijdens de uitval. |
 | 5b | **Database valt uit** | `./scripts/scenario5-containeruitval.sh database 30` | Bij elk verzoek `ERROR Database connection failed`. De API geeft HTTP 503 en `/health` meldt `degraded`. |
 | 6 | **Hoge belasting** | Knop *Genereer sensorrecords*, of `./scripts/scenario6-hoge-belasting.sh [aantal]` (max 20000) | `INFO Generated 1000 sensor records duration_ms=…`. Dit geeft ook database-activiteit en CPU-gebruik. |
 

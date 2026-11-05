@@ -39,6 +39,11 @@ services:
       - "8080:5000"
     volumes:
       - ./logs:/app/logs
+      # Voor 'Docker logs' op de testpagina. Alleen geschikt voor deze lokale testomgeving.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # De socket hoort bij groep 0; zonder dit mag gebruiker 'app' hem niet lezen.
+    group_add:
+      - "0"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=3)"]
       interval: 10s

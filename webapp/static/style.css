@@ -309,3 +309,17 @@ button.block { width: 100%; }
 .page-head .soort-icon { width: 48px; height: 48px; border-radius: 12px; }
 .page-head .soort-icon .icon { width: 24px; height: 24px; }
 .title-row { display: flex; align-items: center; gap: .9rem; }
+
+/* --- Docker logs (testpagina) ---------------------------------------------- */
+.docker-panel { margin-top: 1.25rem; }
+.docker-controls { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; }
+label.inline { display: inline-flex; align-items: center; gap: .4rem; margin: 0; font-weight: 500; font-size: .85rem; }
+label.inline input { width: auto; margin: 0; }
+.docker-logs {
+  font-family: var(--mono); font-size: .78rem; line-height: 1.5;
+  background: var(--side-bg); color: #cfe3ff;
+  padding: .85rem 1rem; border-radius: 8px; margin: 0;
+  max-height: 460px; overflow: auto;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.container-actions { display: grid; gap: .5rem; }

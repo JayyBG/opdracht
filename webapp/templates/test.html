@@ -13,16 +13,21 @@
 <div class="scenarios">
   <section class="panel scenario">
     <div class="scenario-top"><span class="kpi-icon tone-ok">{{ icon('check') }}</span><span class="scenario-num">Scenario 1</span></div>
-    <h2>Succesvolle login</h2>
-    <p>Log uit en weer in. In het log verschijnt <code>INFO User … logged in</code>.</p>
-    <div class="actions"><div class="terminal">./scripts/scenario1-login-succes.sh</div></div>
+    <h2>Inloggen</h2>
+    <p>Eerst een onbekende gebruiker, dan een fout wachtwoord en daarna een goede login. In het log verschijnen
+      <code>WARN Unknown user</code>, <code>WARN Invalid password</code> en <code>INFO User … logged in</code>.</p>
+    <form method="post" action="{{ url_for('test_login') }}">
+      <button type="submit" class="block">{{ icon('check') }}Start login-scenario</button>
+    </form>
   </section>
 
   <section class="panel scenario">
     <div class="scenario-top"><span class="kpi-icon tone-warn">{{ icon('user-x') }}</span><span class="scenario-num">Scenario 2</span></div>
     <h2>Foute wachtwoorden</h2>
-    <p>Probeer een paar keer in te loggen met een verkeerd wachtwoord. Elke poging geeft <code>WARN Invalid password</code>.</p>
-    <div class="actions"><div class="terminal">./scripts/scenario2-foute-logins.sh 10</div></div>
+    <p>Logt 15 keer in met een verkeerd wachtwoord. Elke poging geeft <code>WARN Invalid password</code>.</p>
+    <form method="post" action="{{ url_for('test_foute_logins') }}">
+      <button type="submit" class="block">{{ icon('user-x') }}Start 15 foute logins</button>
+    </form>
   </section>
 
   <section class="panel scenario">
@@ -49,8 +54,13 @@
   <section class="panel scenario">
     <div class="scenario-top"><span class="kpi-icon tone-bad">{{ icon('power') }}</span><span class="scenario-num">Scenario 5</span></div>
     <h2>Containeruitval</h2>
-    <p>Stop een container met de hand. Bij de webapp zie je <code>Application stopped</code>, bij de database <code>Database connection failed</code>.</p>
-    <div class="actions"><div class="terminal">docker stop webapp &amp;&amp; docker start webapp</div></div>
+    <p>Stop een container. Bij de webapp zie je <code>Application stopped</code> en <code>Application started</code>,
+      bij de database <code>Database connection failed</code> zodra je een pagina met gegevens opent.</p>
+    <form method="post" action="{{ url_for('test_container') }}" class="container-actions">
+      <button type="submit" name="actie" value="database-stop" class="danger block">{{ icon('database') }}Stop database (30 s)</button>
+      <button type="submit" name="actie" value="database-start" class="ghost block">{{ icon('power') }}Start database nu</button>
+      <button type="submit" name="actie" value="webapp-restart" class="danger block">{{ icon('server') }}Herstart webapp</button>
+    </form>
   </section>
 
   <section class="panel scenario">
@@ -63,6 +73,24 @@
     </form>
   </section>
 </div>
+
+<section class="panel docker-panel">
+  <div class="panel-head">
+    <h2>{{ icon('server') }}Docker logs</h2>
+    <div class="docker-controls">
+      <nav class="tabs" id="docker-tabs">
+        <a href="#" data-container="webapp" class="active">webapp</a>
+        <a href="#" data-container="database">database</a>
+      </nav>
+      <label class="inline"><input type="checkbox" id="docker-auto" checked> Live (elke 3 s)</label>
+      <button type="button" class="ghost" id="docker-refresh">Vernieuwen</button>
+    </div>
+  </div>
+  <div class="panel-body">
+    <p class="muted" style="margin-top:0">Uitvoer van <code id="docker-cmd">docker logs --tail 200 webapp</code></p>
+    <pre id="docker-output" class="docker-logs">Laden…</pre>
+  </div>
+</section>
 
 <script>
   document.getElementById("api-start").addEventListener("click", async (event) => {
@@ -89,5 +117,42 @@
     result.textContent = `Klaar: ${total} verzoeken in ${seconds} s (${summary}).`;
     button.disabled = false;
   });
+
+  // --- Docker logs ---
+  const dockerOutput = document.getElementById("docker-output");
+  let dockerContainer = "webapp";
+  let dockerTimer = null;
+
+  async function loadDockerLogs(forceBottom = false) {
+    const atBottom = dockerOutput.scrollTop + dockerOutput.clientHeight >= dockerOutput.scrollHeight - 20;
+    try {
+      const res = await fetch(`/test/docker-logs/${dockerContainer}?tail=200`, { cache: "no-store" });
+      dockerOutput.textContent = (await res.text()) || "(geen uitvoer)";
+    } catch {
+      dockerOutput.textContent = "Kan de webapp niet bereiken.";
+    }
+    if (forceBottom || atBottom) dockerOutput.scrollTop = dockerOutput.scrollHeight;
+  }
+
+  function setDockerAuto(on) {
+    clearInterval(dockerTimer);
+    dockerTimer = on ? setInterval(loadDockerLogs, 3000) : null;
+  }
+
+  document.querySelectorAll("#docker-tabs a").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      document.querySelectorAll("#docker-tabs a").forEach((a) => a.classList.remove("active"));
+      link.classList.add("active");
+      dockerContainer = link.dataset.container;
+      document.getElementById("docker-cmd").textContent = `docker logs --tail 200 ${dockerContainer}`;
+      dockerOutput.textContent = "Laden…";
+      loadDockerLogs(true);
+    });
+  });
+  document.getElementById("docker-refresh").addEventListener("click", () => loadDockerLogs(true));
+  document.getElementById("docker-auto").addEventListener("change", (e) => setDockerAuto(e.target.checked));
+  loadDockerLogs(true);
+  setDockerAuto(true);
 </script>
 {% endblock %}

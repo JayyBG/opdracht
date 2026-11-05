@@ -1,8 +1,11 @@
 """GridWatch 2030 – demonstratieomgeving: webapplicatie en REST API."""
+import http.client
 import logging
 import os
 import random
 import re
+import socket
+import threading
 import time
 from functools import wraps
 
@@ -196,6 +199,19 @@ def login_required(view):
     return wrapped
 
 
+def check_login(username, password):
+    """Controleer een inlogpoging en log het resultaat. Geeft de gebruiker terug of None."""
+    user = query("SELECT * FROM users WHERE username = %s", (username,), one=True)
+    if user and check_password_hash(user["password_hash"], password):
+        record(logging.INFO, "login_success", f"User {clean(username)} logged in ip={client_ip()}")
+        return user
+    if user:
+        record(logging.WARNING, "login_failed", f"Invalid password for user {clean(username)} ip={client_ip()}")
+    else:
+        record(logging.WARNING, "login_failed", f"Unknown user {clean(username)} ip={client_ip()}")
+    return None
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
@@ -203,19 +219,14 @@ def login():
 
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
-    user = query("SELECT * FROM users WHERE username = %s", (username,), one=True)
+    user = check_login(username, password)
 
-    if user and check_password_hash(user["password_hash"], password):
+    if user:
         session.clear()
         session["user"] = user["username"]
         session["role"] = user["role"]
-        record(logging.INFO, "login_success", f"User {clean(username)} logged in ip={client_ip()}")
         return redirect(url_for("dashboard"))
 
-    if user:
-        record(logging.WARNING, "login_failed", f"Invalid password for user {clean(username)} ip={client_ip()}")
-    else:
-        record(logging.WARNING, "login_failed", f"Unknown user {clean(username)} ip={client_ip()}")
     flash("Onjuiste gebruikersnaam of wachtwoord.", "error")
     return render_template("login.html", username=username), 401
 
@@ -378,6 +389,164 @@ def gebeurtenissen():
 @login_required
 def test_page():
     return render_template("test.html")
+
+
+@app.route("/test/login", methods=["POST"])
+@login_required
+def test_login():
+    """Scenario 1: eerst een onbekende gebruiker, dan een fout wachtwoord, dan een goede login.
+
+    Je blijft gewoon ingelogd; alleen de pogingen en logregels worden nagebootst.
+    """
+    username = current_user()
+    password = {
+        "admin": os.environ.get("ADMIN_PASSWORD", "GridWatch2030!"),
+        "operator": os.environ.get("OPERATOR_PASSWORD", "Operator2030!"),
+    }.get(username)
+    if password is None:
+        flash("Dit scenario werkt alleen voor de gebruikers admin en operator.", "error")
+        return redirect(url_for("test_page"), code=303)
+
+    stappen = [
+        ("onbekende gebruiker", f"{username}x", password),
+        ("fout wachtwoord", username, "verkeerd-wachtwoord"),
+        ("juiste gegevens", username, password),
+    ]
+    uitkomst = []
+    for naam, user, pw in stappen:
+        gelukt = check_login(user, pw) is not None
+        uitkomst.append(f"{naam}: {'gelukt' if gelukt else 'mislukt'}")
+    flash("Login-scenario uitgevoerd. " + " → ".join(uitkomst) + ".", "ok")
+    return redirect(url_for("test_page"), code=303)
+
+
+@app.route("/test/foute-logins", methods=["POST"])
+@login_required
+def test_foute_logins():
+    """Scenario 2: 15 keer een verkeerd wachtwoord voor de ingelogde gebruiker (brute force)."""
+    wachtwoorden = ["welkom123", "test123", "admin123", "wachtwoord", "123456", "qwerty", "letmein"]
+    pogingen = 15
+    for i in range(pogingen):
+        check_login(current_user(), wachtwoorden[i % len(wachtwoorden)])
+    flash(f"{pogingen} foute inlogpogingen uitgevoerd voor {current_user()}.", "ok")
+    return redirect(url_for("test_page"), code=303)
+
+
+DOCKER_SOCKET = os.environ.get("DOCKER_SOCKET", "/var/run/docker.sock")
+DOCKER_CONTAINERS = ("webapp", "database")
+
+
+class UnixHTTPConnection(http.client.HTTPConnection):
+    """HTTP over de Docker-socket, zodat er geen extra package nodig is."""
+
+    def __init__(self, path, timeout=5):
+        super().__init__("localhost", timeout=timeout)
+        self.unix_path = path
+
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.settimeout(self.timeout)
+        self.sock.connect(self.unix_path)
+
+
+def docker_logs(container, tail):
+    """Laatste regels van `docker logs <container>` via de Docker Engine API."""
+    conn = UnixHTTPConnection(DOCKER_SOCKET)
+    try:
+        conn.request("GET", f"/containers/{container}/logs?stdout=1&stderr=1&tail={tail}")
+        resp = conn.getresponse()
+        body = resp.read()
+    finally:
+        conn.close()
+    if resp.status != 200:
+        raise RuntimeError(f"Docker API gaf status {resp.status}: {body[:200].decode('utf-8', 'replace')}")
+
+    # Zonder TTY stuurt Docker blokken: 8 bytes header (stream, 0, 0, 0, lengte) + data.
+    if body[:1] in (b"\x00", b"\x01", b"\x02") and body[1:4] == b"\x00\x00\x00":
+        parts, i = [], 0
+        while i + 8 <= len(body):
+            size = int.from_bytes(body[i + 4:i + 8], "big")
+            parts.append(body[i + 8:i + 8 + size])
+            i += 8 + size
+        body = b"".join(parts)
+    return body.decode("utf-8", "replace")
+
+
+def docker_action(container, action, wait=5):
+    """Voer `docker stop|start|restart <container>` uit via de Docker Engine API."""
+    path = f"/containers/{container}/{action}"
+    if action in ("stop", "restart"):
+        path += f"?t={wait}"
+    conn = UnixHTTPConnection(DOCKER_SOCKET, timeout=wait + 20)
+    try:
+        conn.request("POST", path, body=b"", headers={"Content-Length": "0"})
+        resp = conn.getresponse()
+        body = resp.read()
+    finally:
+        conn.close()
+    # 204 = gelukt, 304 = stond al in die toestand.
+    if resp.status not in (204, 304):
+        raise RuntimeError(f"Docker API gaf status {resp.status}: {body[:200].decode('utf-8', 'replace')}")
+
+
+def docker_action_later(container, action, delay):
+    """Voer een Docker-actie uit na `delay` seconden, zonder het verzoek op te houden."""
+    def run():
+        try:
+            docker_action(container, action)
+        except Exception as exc:
+            log.error(f"Docker {action} {container} failed detail={clean(exc, 200)}")
+    timer = threading.Timer(delay, run)
+    timer.daemon = True
+    timer.start()
+
+
+DATABASE_DOWNTIME = 30
+
+
+@app.route("/test/container", methods=["POST"])
+@login_required
+def test_container():
+    """Scenario 5: containeruitval."""
+    actie = request.form.get("actie")
+    try:
+        if actie == "database-stop":
+            docker_action("database", "stop")
+            docker_action_later("database", "start", DATABASE_DOWNTIME)
+            flash(f"Database gestopt. Hij start na {DATABASE_DOWNTIME} seconden vanzelf weer. "
+                  "Open intussen het Dashboard om 'Database connection failed' in het log te krijgen.", "ok")
+        elif actie == "database-start":
+            docker_action("database", "start")
+            flash("Database gestart.", "ok")
+        elif actie == "webapp-restart":
+            # Na een korte pauze, zodat dit antwoord de browser nog bereikt.
+            docker_action_later("webapp", "restart", 1)
+            flash("De webapp wordt herstart. De pagina is een paar seconden niet bereikbaar.", "ok")
+        else:
+            abort(400)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        flash(f"Docker-actie mislukt: {exc}", "error")
+    return redirect(url_for("test_page"), code=303)
+
+
+@app.route("/test/docker-logs/<container>")
+@login_required
+def test_docker_logs(container):
+    if container not in DOCKER_CONTAINERS:
+        abort(404)
+    tail = min(max(request.args.get("tail", 200, type=int) or 200, 1), 2000)
+    plain = {"Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store"}
+    try:
+        return docker_logs(container, tail), 200, plain
+    except (FileNotFoundError, ConnectionRefusedError):
+        msg = "Docker-socket niet gevonden. Staat /var/run/docker.sock gekoppeld in docker-compose.yml?"
+    except PermissionError:
+        msg = "Geen toegang tot de Docker-socket (rechtenprobleem)."
+    except Exception as exc:
+        msg = f"Docker logs ophalen mislukt: {exc}"
+    return msg, 503, plain
 
 
 @app.route("/test/error", methods=["POST"])
