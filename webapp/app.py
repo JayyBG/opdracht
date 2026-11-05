@@ -169,6 +169,12 @@ def database_unavailable(exc):
                            message="De database reageert niet. Probeer het later opnieuw."), 503
 
 
+@app.errorhandler(403)
+def forbidden(exc):
+    return render_template("error.html", title="Geen toegang",
+                           message="Dit onderdeel is alleen beschikbaar voor de rol admin."), 403
+
+
 @app.errorhandler(404)
 def not_found(exc):
     if request.path.startswith("/api/"):
@@ -197,6 +203,18 @@ def login_required(view):
     def wrapped(*args, **kwargs):
         if "user" not in session:
             return redirect(url_for("login"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def admin_required(view):
+    """Alleen voor de rol admin; pogingen van anderen worden gelogd."""
+    @wraps(view)
+    @login_required
+    def wrapped(*args, **kwargs):
+        if session.get("role") != "admin":
+            log.warning(f"Access denied path={request.path} user={current_user()} ip={client_ip()}")
+            abort(403)
         return view(*args, **kwargs)
     return wrapped
 
@@ -564,7 +582,7 @@ resume_database_start()
 
 
 @app.route("/test/container", methods=["POST"])
-@login_required
+@admin_required
 def test_container():
     """Scenario 5: containeruitval."""
     actie = request.form.get("actie")
@@ -592,7 +610,7 @@ def test_container():
 
 
 @app.route("/test/docker-logs/<container>")
-@login_required
+@admin_required
 def test_docker_logs(container):
     if container not in DOCKER_CONTAINERS:
         abort(404)
