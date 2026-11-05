@@ -406,26 +406,20 @@ def gebeurtenissen():
 # --- Testscenario's -----------------------------------------------------------
 
 @app.route("/test")
-@login_required
+@admin_required
 def test_page():
     return render_template("test.html")
 
 
 @app.route("/test/login", methods=["POST"])
-@login_required
+@admin_required
 def test_login():
     """Scenario 1: eerst een onbekende gebruiker, dan een fout wachtwoord, dan een goede login.
 
     Je blijft gewoon ingelogd; alleen de pogingen en logregels worden nagebootst.
     """
     username = current_user()
-    password = {
-        "admin": os.environ.get("ADMIN_PASSWORD", "GridWatch2030!"),
-        "operator": os.environ.get("OPERATOR_PASSWORD", "Operator2030!"),
-    }.get(username)
-    if password is None:
-        flash("Dit scenario werkt alleen voor de gebruikers admin en operator.", "error")
-        return redirect(url_for("test_page"), code=303)
+    password = os.environ.get("ADMIN_PASSWORD", "GridWatch2030!")
 
     stappen = [
         ("onbekende gebruiker", f"{username}x", password),
@@ -441,7 +435,7 @@ def test_login():
 
 
 @app.route("/test/foute-logins", methods=["POST"])
-@login_required
+@admin_required
 def test_foute_logins():
     """Scenario 2: 15 keer een verkeerd wachtwoord voor de ingelogde gebruiker (brute force)."""
     wachtwoorden = ["welkom123", "test123", "admin123", "wachtwoord", "123456", "qwerty", "letmein"]
@@ -628,13 +622,13 @@ def test_docker_logs(container):
 
 
 @app.route("/test/error", methods=["POST"])
-@login_required
+@admin_required
 def test_error():
     raise RuntimeError("Test exception generated")
 
 
 @app.route("/test/load", methods=["POST"])
-@login_required
+@admin_required
 def test_load():
     count = min(max(request.form.get("count", 1000, type=int) or 1000, 1), 20000)
     started = time.perf_counter()

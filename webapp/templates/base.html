@@ -24,7 +24,9 @@
       <a href="{{ url_for('meldingen', type='storing') }}" class="{{ 'active' if is_storing }}">{{ icon('alert') }}<span class="nav-label">Storingen</span>
         {% if open_storingen %}<span class="nav-count">{{ open_storingen }}</span>{% endif %}</a>
       <a href="{{ url_for('gebeurtenissen') }}" class="{{ 'active' if ep == 'gebeurtenissen' }}">{{ icon('list') }}<span class="nav-label">Gebeurtenissen</span></a>
+      {% if session.role == 'admin' %}
       <a href="{{ url_for('test_page') }}" class="{{ 'active' if ep == 'test_page' }}">{{ icon('flask') }}<span class="nav-label">Testscenario's</span></a>
+      {% endif %}
     </nav>
     <div class="sidebar-foot">
       <span class="avatar">{{ session.user[:1] }}</span>

@@ -70,7 +70,7 @@ Beide containers hebben `restart: unless-stopped`. Als je een container met de h
 | `/meldingen` | Onderhoudsmeldingen en storingen bekijken, en via een **formulier** een nieuwe melding invullen |
 | `/meldingen?type=storing` | Storingenoverzicht |
 | `/gebeurtenissen` | De laatste 200 gebeurtenissen uit de `events`-tabel, te filteren op INFO, WARN of ERROR |
-| `/test` | Knoppen voor de testscenario's |
+| `/test` | Knoppen voor de testscenario's (alleen voor `admin`) |
 
 ### REST API
 De API heeft geen login nodig: het is een interne testomgeving. Alle antwoorden zijn JSON.
@@ -154,7 +154,7 @@ Alle scenario's zijn veilig en herhaalbaar. Ze werken alleen tegen deze lokale o
 Deze omgeving is bedoeld om te testen en te monitoren. Een paar dingen zijn daarom expres eenvoudig gehouden:
 - Er is geen account-lockout en geen rate limiting. Daardoor zijn brute-force- en verkeerspieken zichtbaar in de logs.
 - De API heeft geen authenticatie.
-- De Docker-logs en -knoppen op de testpagina zijn alleen voor de rol `admin`. De overige scenario's kan elke ingelogde gebruiker uitvoeren.
+- De pagina Testscenario's is alleen zichtbaar en bruikbaar voor de rol `admin`.
 - Er is geen HTTPS. Alles draait lokaal.
 - Er is geen CSRF-token. De sessiecookie is wel `HttpOnly` en `SameSite=Lax`.
 

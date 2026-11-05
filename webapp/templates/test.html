@@ -56,15 +56,11 @@
     <h2>Containeruitval</h2>
     <p>Stop een container. Bij de webapp zie je <code>Application stopped</code> en <code>Application started</code>,
       bij de database <code>Database connection failed</code> zodra je een pagina met gegevens opent.</p>
-    {% if session.role == 'admin' %}
     <form method="post" action="{{ url_for('test_container') }}" class="container-actions">
       <button type="submit" name="actie" value="database-stop" class="danger block">{{ icon('database') }}Stop database (30 s)</button>
       <button type="submit" name="actie" value="database-start" class="ghost block">{{ icon('power') }}Start database nu</button>
       <button type="submit" name="actie" value="webapp-restart" class="danger block">{{ icon('server') }}Herstart webapp</button>
     </form>
-    {% else %}
-    <p class="muted">De knoppen voor dit scenario zijn alleen beschikbaar voor de rol admin.</p>
-    {% endif %}
   </section>
 
   <section class="panel scenario">
@@ -78,7 +74,6 @@
   </section>
 </div>
 
-{% if session.role == 'admin' %}
 <section class="panel docker-panel">
   <div class="panel-head">
     <h2>{{ icon('server') }}Docker logs</h2>
@@ -96,7 +91,6 @@
     <pre id="docker-output" class="docker-logs">Laden…</pre>
   </div>
 </section>
-{% endif %}
 
 <script>
   document.getElementById("api-start").addEventListener("click", async (event) => {
@@ -124,7 +118,6 @@
     button.disabled = false;
   });
 
-  {% if session.role == 'admin' %}
   // --- Docker logs ---
   const dockerOutput = document.getElementById("docker-output");
   let dockerContainer = "webapp";
@@ -161,6 +154,5 @@
   document.getElementById("docker-auto").addEventListener("change", (e) => setDockerAuto(e.target.checked));
   loadDockerLogs(true);
   setDockerAuto(true);
-  {% endif %}
 </script>
 {% endblock %}
