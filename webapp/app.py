@@ -16,7 +16,7 @@ from flask import (Flask, abort, flash, g, jsonify, redirect, render_template,
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from logsetup import get_logger
+from logsetup import LOG_FILE, get_logger
 
 log = get_logger()
 
@@ -87,15 +87,16 @@ def seed_users():
         ("admin", os.environ.get("ADMIN_PASSWORD", "GridWatch2030!"), "admin"),
         ("operator", os.environ.get("OPERATOR_PASSWORD", "Operator2030!"), "operator"),
     ]
-    for _ in range(30):
+    failed = False
+    while True:
         try:
             conn = psycopg2.connect(**DB_SETTINGS)
             break
         except psycopg2.OperationalError:
-            time.sleep(1)
-    else:
-        log.error("Database connection failed during startup")
-        return
+            if not failed:
+                log.error("Database connection failed during startup")
+                failed = True
+            time.sleep(2)
     with conn, conn.cursor() as cur:
         for username, password, role in users:
             cur.execute(
@@ -106,7 +107,8 @@ def seed_users():
     conn.close()
 
 
-seed_users()
+# Op de achtergrond, zodat de webapp ook bereikbaar is als de database uit staat.
+threading.Thread(target=seed_users, daemon=True).start()
 
 
 # --- Logging helpers ----------------------------------------------------------
@@ -502,6 +504,63 @@ def docker_action_later(container, action, delay):
 
 
 DATABASE_DOWNTIME = 30
+# Bewaart het geplande starttijdstip, zodat dit een herstart van de webapp overleeft.
+DATABASE_START_FILE = os.path.join(os.path.dirname(LOG_FILE), ".database-start-at")
+database_timer = None
+database_timer_lock = threading.Lock()
+
+
+def clear_database_start():
+    """Annuleer een geplande start van de database."""
+    global database_timer
+    with database_timer_lock:
+        if database_timer is not None:
+            database_timer.cancel()
+            database_timer = None
+        try:
+            os.remove(DATABASE_START_FILE)
+        except FileNotFoundError:
+            pass
+
+
+def run_database_start():
+    try:
+        docker_action("database", "start")
+    except Exception as exc:
+        # Het bestand blijft staan: bij de volgende start van de webapp opnieuw proberen.
+        log.error(f"Docker start database failed detail={clean(exc, 200)}")
+        return
+    clear_database_start()
+
+
+def start_database_timer(delay):
+    global database_timer
+    with database_timer_lock:
+        if database_timer is not None:
+            database_timer.cancel()
+        database_timer = threading.Timer(delay, run_database_start)
+        database_timer.daemon = True
+        database_timer.start()
+
+
+def schedule_database_start(delay):
+    """Start de database over `delay` seconden, ook als de webapp intussen herstart."""
+    with open(DATABASE_START_FILE, "w") as f:
+        f.write(str(time.time() + delay))
+    start_database_timer(delay)
+
+
+def resume_database_start():
+    """Pak een geplande start weer op die vóór een herstart van de webapp is ingesteld."""
+    try:
+        with open(DATABASE_START_FILE) as f:
+            start_at = float(f.read())
+    except (FileNotFoundError, ValueError):
+        return
+    start_database_timer(max(start_at - time.time(), 0))
+
+
+resume_database_start()
 
 
 @app.route("/test/container", methods=["POST"])
@@ -512,11 +571,12 @@ def test_container():
     try:
         if actie == "database-stop":
             docker_action("database", "stop")
-            docker_action_later("database", "start", DATABASE_DOWNTIME)
+            schedule_database_start(DATABASE_DOWNTIME)
             flash(f"Database gestopt. Hij start na {DATABASE_DOWNTIME} seconden vanzelf weer. "
                   "Open intussen het Dashboard om 'Database connection failed' in het log te krijgen.", "ok")
         elif actie == "database-start":
             docker_action("database", "start")
+            clear_database_start()
             flash("Database gestart.", "ok")
         elif actie == "webapp-restart":
             # Na een korte pauze, zodat dit antwoord de browser nog bereikt.
@@ -543,7 +603,7 @@ def test_docker_logs(container):
     except (FileNotFoundError, ConnectionRefusedError):
         msg = "Docker-socket niet gevonden. Staat /var/run/docker.sock gekoppeld in docker-compose.yml?"
     except PermissionError:
-        msg = "Geen toegang tot de Docker-socket (rechtenprobleem)."
+        msg = "Geen toegang tot de Docker-socket. Zet de juiste groep als DOCKER_GID in .env (zie README)."
     except Exception as exc:
         msg = f"Docker logs ophalen mislukt: {exc}"
     return msg, 503, plain

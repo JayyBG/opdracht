@@ -7,7 +7,8 @@ threads = 8
 graceful_timeout = 5
 
 
-def when_ready(server):
+def post_worker_init(worker):
+    # Pas hier is de applicatie geladen en kan de webapp verzoeken afhandelen.
     get_logger().info("Application started")
 
 

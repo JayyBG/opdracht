@@ -160,6 +160,10 @@ Deze omgeving is bedoeld om te testen en te monitoren. Een paar dingen zijn daar
 ---
 
 ## 6. Problemen oplossen
+- **Docker-logs of -knoppen op de testpagina geven een rechtenfout**: de webapp zit niet in de groep van de Docker-socket. Dat nummer verschilt per computer. Vraag het op met het commando hieronder, zet het als `DOCKER_GID=<nummer>` in `.env` en voer `docker compose up -d` uit.
+  ```bash
+  docker run --rm -v /var/run/docker.sock:/var/run/docker.sock alpine stat -c %g /var/run/docker.sock
+  ```
 - **Poort 8080 is al in gebruik**: verander in `docker-compose.yml` de regel `"8080:5000"` in bijvoorbeeld `"8081:5000"`.
 - **Container `webapp` of `database` bestaat al**: verwijder de oude container met `docker rm -f webapp database`.
 - **Linux: `Permission denied` op `logs/app.log`**: de webapp draait als gebruiker met uid 1000. Los het op met `sudo chown 1000 logs`.
